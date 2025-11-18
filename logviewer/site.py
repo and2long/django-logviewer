@@ -49,6 +49,18 @@ BACKGROUND_COLORS = {
     "106": "#55ffff",
     "107": "#ffffff",
 }
+LOG_LEVEL_CSS_CLASSES = {
+    "DEBUG": "log-level-debug",
+    "INFO": "log-level-info",
+    "WARNING": "log-level-warning",
+    "WARN": "log-level-warning",
+    "ERROR": "log-level-error",
+    "CRITICAL": "log-level-critical",
+    "FATAL": "log-level-critical",
+}
+LOG_LEVEL_PATTERN = re.compile(
+    r"\b(" + "|".join(LOG_LEVEL_CSS_CLASSES.keys()) + r")\b", re.IGNORECASE
+)
 
 
 def _get_log_dir() -> Path:
@@ -96,6 +108,20 @@ def _build_style(color, background, bold):
     return " ".join(parts)
 
 
+def _highlight_log_levels_html(text: str) -> str:
+    if not text:
+        return text
+
+    def repl(match: re.Match) -> str:
+        matched_text = match.group(0)
+        css_class = LOG_LEVEL_CSS_CLASSES.get(matched_text.upper())
+        if not css_class:
+            return matched_text
+        return f'<span class="{css_class}">{matched_text}</span>'
+
+    return LOG_LEVEL_PATTERN.sub(repl, text)
+
+
 def _ansi_to_html(log_text: str):
     if not log_text:
         return mark_safe("")
@@ -110,11 +136,12 @@ def _ansi_to_html(log_text: str):
         if not segment:
             return
         escaped = escape(segment)
+        highlighted = _highlight_log_levels_html(escaped)
         style = _build_style(current_color, current_bg, current_bold)
         if style:
-            result.append(f'<span style="{style}">{escaped}</span>')
+            result.append(f'<span style="{style}">{highlighted}</span>')
         else:
-            result.append(escaped)
+            result.append(highlighted)
 
     for match in ANSI_PATTERN.finditer(log_text):
         append_text(log_text[last_end : match.start()])
